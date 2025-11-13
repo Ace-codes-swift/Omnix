@@ -1,1 +1,0 @@
-CERT="Apple Development: meg_jones25@hotmail.com (D8B5277RV9)" BUNDLE_ID=com.atech.Omnix APPLE_ID=ace_jones25@icloud.com APP_PW='2237'
