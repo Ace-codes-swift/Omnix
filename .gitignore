@@ -1,0 +1,19 @@
+# Prerequisites
+*.d
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Linker files
+*.ilk
+
+# Debugger Files
+*.pdb
+
+# Fortran module files
+*.mod
+*.smod
+
+# debug information files
+*.dwo
