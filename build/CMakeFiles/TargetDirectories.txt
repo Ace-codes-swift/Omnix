@@ -1,0 +1,10 @@
+/Users/atech/cursor/Omnix/build/CMakeFiles/Omnix.dir
+/Users/atech/cursor/Omnix/build/CMakeFiles/imgui.dir
+/Users/atech/cursor/Omnix/build/CMakeFiles/edit_cache.dir
+/Users/atech/cursor/Omnix/build/CMakeFiles/rebuild_cache.dir
+/Users/atech/cursor/Omnix/build/_deps/glfw-build/CMakeFiles/edit_cache.dir
+/Users/atech/cursor/Omnix/build/_deps/glfw-build/CMakeFiles/rebuild_cache.dir
+/Users/atech/cursor/Omnix/build/_deps/glfw-build/src/CMakeFiles/glfw.dir
+/Users/atech/cursor/Omnix/build/_deps/glfw-build/src/CMakeFiles/update_mappings.dir
+/Users/atech/cursor/Omnix/build/_deps/glfw-build/src/CMakeFiles/edit_cache.dir
+/Users/atech/cursor/Omnix/build/_deps/glfw-build/src/CMakeFiles/rebuild_cache.dir

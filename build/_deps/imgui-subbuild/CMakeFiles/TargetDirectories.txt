@@ -1,0 +1,3 @@
+/Users/atech/cursor/Omnix/build/_deps/imgui-subbuild/CMakeFiles/imgui-populate.dir
+/Users/atech/cursor/Omnix/build/_deps/imgui-subbuild/CMakeFiles/edit_cache.dir
+/Users/atech/cursor/Omnix/build/_deps/imgui-subbuild/CMakeFiles/rebuild_cache.dir

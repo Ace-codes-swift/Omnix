@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/atech/cursor/Omnix/build/cmake_install.cmake",
+		"/Users/atech/cursor/Omnix/build/_deps/glfw-build/cmake_install.cmake",
+		"/Users/atech/cursor/Omnix/build/_deps/glfw-build/src/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
