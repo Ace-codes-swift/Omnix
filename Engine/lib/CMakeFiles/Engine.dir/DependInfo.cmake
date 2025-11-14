@@ -9,6 +9,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/atech/cursor/Omnix/Engine/src/EngineInit.cpp" "CMakeFiles/Engine.dir/src/EngineInit.cpp.o" "gcc" "CMakeFiles/Engine.dir/src/EngineInit.cpp.o.d"
+  "/Users/atech/cursor/Omnix/Engine/src/File.cpp" "CMakeFiles/Engine.dir/src/File.cpp.o" "gcc" "CMakeFiles/Engine.dir/src/File.cpp.o.d"
   "/Users/atech/cursor/Omnix/Engine/src/Main.cpp" "CMakeFiles/Engine.dir/src/Main.cpp.o" "gcc" "CMakeFiles/Engine.dir/src/Main.cpp.o.d"
   "/Users/atech/cursor/Omnix/Engine/src/Status.cpp" "CMakeFiles/Engine.dir/src/Status.cpp.o" "gcc" "CMakeFiles/Engine.dir/src/Status.cpp.o.d"
   )

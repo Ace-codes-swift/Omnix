@@ -2,6 +2,10 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "Panels.h"
+#include "EngineLib/File.hpp"
+#include <OpenGL/gl3.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreGraphics/CoreGraphics.h>
 #include <cstdio>
 #include <vector>
 #include <algorithm>
@@ -16,6 +20,9 @@ namespace {
         ImGui::RenderTextClipped(rectMin, rectMax, text ? text : "", nullptr, nullptr, ImVec2(0.5f, 0.5f), nullptr);
     }
     namespace fs = std::filesystem;
+    
+    // Global project name storage
+    static std::string g_projectName = "NewProject"; // Default matches main.cpp
 
     struct ScriptState {
         std::string scriptsDir;
@@ -27,9 +34,43 @@ namespace {
         char nameBuf[128] = {0};
     };
 
+    struct FileExplorerState {
+        std::string rootDir;
+        std::string currentDir;
+    };
+
     ScriptState& scriptState() {
         static ScriptState s;
         return s;
+    }
+
+    FileExplorerState& fileExplorerState() {
+        static FileExplorerState s;
+        return s;
+    }
+
+    // Resolve a resource inside the app bundle's Resources/ directory.
+    std::string GetResourcePath(const std::string& filename) {
+        CFBundleRef mainBundle = CFBundleGetMainBundle();
+        if (!mainBundle)
+            return {};
+
+        CFStringRef cfName = CFStringCreateWithCString(nullptr, filename.c_str(), kCFStringEncodingUTF8);
+        if (!cfName)
+            return {};
+
+        CFURLRef resourceURL = CFBundleCopyResourceURL(mainBundle, cfName, nullptr, nullptr);
+        CFRelease(cfName);
+        if (!resourceURL)
+            return {};
+
+        char path[PATH_MAX];
+        std::string result;
+        if (CFURLGetFileSystemRepresentation(resourceURL, true, reinterpret_cast<UInt8*>(path), PATH_MAX)) {
+            result = path;
+        }
+        CFRelease(resourceURL);
+        return result;
     }
 
     std::string getHomeDir() {
@@ -37,14 +78,110 @@ namespace {
         return home ? std::string(home) : std::string("/");
     }
 
+    // NOTE: Must stay in sync with EngineInit.cpp project path logic.
+    std::string getProjectsRootDir() {
+        return getHomeDir() + "/Library/Application Support/Omnix/Omnix Projects";
+    }
+
+    // Returns the current project name (synchronized with main.cpp via UI::setProjectName)
+    std::string getCurrentProjectName() {
+        return g_projectName;
+    }
+
+    std::string ensureProjectRootDir() {
+        FileExplorerState& fe = fileExplorerState();
+        if (!fe.rootDir.empty()) return fe.rootDir;
+
+        std::string root = getProjectsRootDir() + "/" + getCurrentProjectName();
+        std::error_code ec;
+        fs::create_directories(root, ec);
+        fe.rootDir = root;
+        return fe.rootDir;
+    }
+
     std::string ensureScriptsDir() {
         ScriptState& st = scriptState();
         if (!st.scriptsDir.empty()) return st.scriptsDir;
-        std::string dir = getHomeDir() + "/Library/Application Support/Omnix/Scripts";
+        // Scripts live inside the current project folder under "Scripts"
+        std::string dir = ensureProjectRootDir() + "/Scripts";
         std::error_code ec;
         fs::create_directories(dir, ec);
         st.scriptsDir = dir;
         return st.scriptsDir;
+    }
+
+    // Load a PNG texture using CoreGraphics into an OpenGL texture.
+    GLuint LoadTextureFromPNG(const std::string& path) {
+        CGDataProviderRef provider = CGDataProviderCreateWithFilename(path.c_str());
+        if (!provider)
+            return 0;
+
+        CGImageRef image = CGImageCreateWithPNGDataProvider(provider, nullptr, true, kCGRenderingIntentDefault);
+        CGDataProviderRelease(provider);
+        if (!image)
+            return 0;
+
+        const size_t width  = CGImageGetWidth(image);
+        const size_t height = CGImageGetHeight(image);
+        if (width == 0 || height == 0) {
+            CGImageRelease(image);
+            return 0;
+        }
+
+        std::vector<unsigned char> pixels(width * height * 4);
+        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+        CGContextRef context = CGBitmapContextCreate(
+            pixels.data(),
+            static_cast<size_t>(width),
+            static_cast<size_t>(height),
+            8,
+            static_cast<size_t>(width) * 4,
+            colorSpace,
+            kCGImageAlphaPremultipliedLast
+        );
+        CGColorSpaceRelease(colorSpace);
+
+        if (!context) {
+            CGImageRelease(image);
+            return 0;
+        }
+
+        CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
+        CGContextRelease(context);
+        CGImageRelease(image);
+
+        GLuint texId = 0;
+        glGenTextures(1, &texId);
+        glBindTexture(GL_TEXTURE_2D, texId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, static_cast<GLsizei>(width), static_cast<GLsizei>(height), 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        return texId;
+    }
+
+    ImTextureRef getFolderIconTexture() {
+        static ImTextureRef texRef;      // default-constructed = invalid
+        static bool initialized = false;
+        if (initialized)
+            return texRef;
+        initialized = true;
+
+        // Path inside app bundle Resources
+        std::string path = GetResourcePath("Assets/macos-folder-blue512x512@2x.png");
+        if (path.empty())
+            return texRef;
+
+        GLuint texId = LoadTextureFromPNG(path);
+        if (texId != 0) {
+            texRef = ImTextureRef(reinterpret_cast<void*>(static_cast<intptr_t>(texId)));
+        }
+        return texRef;
     }
 
     static bool isAlphaNumOrUnderscore(char c) {
@@ -114,29 +251,108 @@ void UI::draw() {
     if (Panels::showAssets) {
         ImGui::SetNextWindowBgAlpha(1.0f); 
         if (ImGui::Begin("Assets", &Panels::showAssets)) {
-            // List all .cs scripts as icons with names, double-click to open, draggable to Inspector
-            ScriptState& st = scriptState();
-            std::string dir = ensureScriptsDir();
+            // Mini file explorer rooted at the current project folder
+            FileExplorerState& fe = fileExplorerState();
+            std::string rootDir = ensureProjectRootDir();
+            if (fe.currentDir.empty()) {
+                fe.currentDir = rootDir;
+            }
+            std::string dir = fe.currentDir;
 
-            std::vector<std::pair<std::string, std::string>> scripts; // {name, path}
+            // Navigation bar: Up button + current path (relative to root where possible)
+            {
+                if (ImGui::Button("Back")) {
+                    if (dir != rootDir) {
+                        fs::path p(dir);
+                        fs::path parent = p.parent_path();
+                        std::string parentStr = parent.string();
+                        if (parentStr.size() >= rootDir.size() &&
+                            parentStr.compare(0, rootDir.size(), rootDir) == 0) {
+                            fe.currentDir = parentStr;
+                        } else {
+                            fe.currentDir = rootDir;
+                        }
+                        dir = fe.currentDir;
+                    }
+                }
+                ImGui::SameLine();
+
+                std::string displayPath;
+                if (dir.size() >= rootDir.size() &&
+                    dir.compare(0, rootDir.size(), rootDir) == 0) {
+                    displayPath = dir.substr(rootDir.size());
+                    if (displayPath.empty()) displayPath = "/";
+                } else {
+                    displayPath = dir;
+                }
+                ImGui::TextUnformatted(displayPath.c_str());
+            }
+
+            struct FileItem {
+                std::string name;
+                std::string path;
+                bool isDir;
+                bool isCS;
+            };
+
+            std::vector<FileItem> items;
             {
                 std::error_code ec;
-                if (fs::exists(dir, ec)) {
+                if (fs::exists(dir, ec) && fs::is_directory(dir, ec)) {
                     for (auto it = fs::directory_iterator(dir, ec); !ec && it != fs::end(it); it.increment(ec)) {
                         if (ec) break;
                         const fs::directory_entry& de = *it;
-                        if (!de.is_regular_file(ec)) continue;
                         const fs::path& p = de.path();
-                        if (p.extension() == ".cs") {
-                            scripts.emplace_back(p.filename().string(), p.string());
-                        }
+                        FileItem item;
+                        item.name = p.filename().string();
+
+                        // Skip Finder metadata and hidden dot-files like ".DS_Store"
+                        if (!item.name.empty() && item.name[0] == '.')
+                            continue;
+
+                        item.path = p.string();
+                        item.isDir = de.is_directory(ec);
+                        item.isCS = (!item.isDir && p.extension() == ".cs");
+                        items.push_back(std::move(item));
                     }
                 }
             }
-            std::sort(scripts.begin(), scripts.end(), [](auto& a, auto& b){ return a.first < b.first; });
+
+            // Sort: directories first, then files, both alphabetically
+            std::sort(items.begin(), items.end(), [](const FileItem& a, const FileItem& b) {
+                if (a.isDir != b.isDir) return a.isDir > b.isDir;
+                return a.name < b.name;
+            });
+
+            // Selection state - tracks currently selected item
+            static std::string selectedPath;
+            static bool selectedIsDir = false;
+            static bool hasSelection = false;
+            
+            // Context state for right-click menu over the Assets panel
+            static std::string ctxPath;
+            static bool ctxIsDir = false;
+            static bool ctxHasSelection = false;
+            // Clipboard state for Copy/Paste (files only)
+            static std::string clipboardPath;
+            static bool clipboardHasFile = false;
+            // Text buffers for new file/folder naming and rename popup
+            static char newFileNameBuf[256] = {0};
+            static char newFolderNameBuf[256] = {0};
+            static char renameBuf[256] = {0};
+            // Base dirs for new file/folder popups
+            static std::string newFileBaseDir;
+            static std::string newFolderBaseDir;
+            // Rename state
+            static bool shouldOpenRenamePopup = false;
+            static std::string renameTargetPath;
+            static bool renameTargetIsDir = false;
+            // New File/Folder popup flags
+            static bool shouldOpenNewFilePopup = false;
+            static bool shouldOpenNewFolderPopup = false;
 
             // Grid settings
-            const float iconSize = 36.0f;
+            const float iconSize = 72.0f; // 2x previous size
             const float labelHeight = ImGui::GetTextLineHeight();
             const float cellWidth = 120.0f;
             const float cellHeight = iconSize + 6.0f + labelHeight + 8.0f;
@@ -144,11 +360,15 @@ void UI::draw() {
             int cols = (int)std::max(1.0f, floorf(availX / cellWidth));
 
             int col = 0;
-            for (auto& [name, path] : scripts) {
+            for (auto& item : items) {
+                const std::string& name = item.name;
+                const std::string& path = item.path;
+                const bool isDir = item.isDir;
+
                 if (col > 0) ImGui::SameLine();
                 ImGui::BeginGroup();
 
-                // Icon button styled as a filled square with "CS"
+                // Icon button: use PNG icon for folders when available, otherwise fallback to colored square
                 ImGui::PushID(path.c_str());
                 ImVec2 p0 = ImGui::GetCursorScreenPos();
                 // Center icon horizontally within the cell
@@ -156,20 +376,110 @@ void UI::draw() {
                 ImVec2 ip0 = ImVec2(iconX, p0.y);
                 ImVec2 ip1 = ImVec2(iconX + iconSize, p0.y + iconSize);
                 ImDrawList* dl = ImGui::GetWindowDrawList();
-                const ImU32 iconBg = IM_COL32(60, 120, 200, 255);
-                const ImU32 iconBorder = IM_COL32(30, 60, 100, 255);
-                dl->AddRectFilled(ip0, ip1, iconBg, 6.0f);
-                dl->AddRect(ip0, ip1, iconBorder, 6.0f, 0, 2.0f);
+
+                // Check if this item is selected
+                bool isSelected = (hasSelection && selectedPath == path);
+
+                // Draw selection highlight if selected
+                if (isSelected) {
+                    ImVec2 highlightMin = ImVec2(p0.x - 2.0f, p0.y - 2.0f);
+                    ImVec2 highlightMax = ImVec2(p0.x + cellWidth + 2.0f, p0.y + cellHeight + 2.0f);
+                    ImU32 selectionColor = IM_COL32(70, 130, 180, 80); // Semi-transparent blue
+                    ImU32 selectionBorder = IM_COL32(70, 130, 180, 200);
+                    dl->AddRectFilled(highlightMin, highlightMax, selectionColor, 4.0f);
+                    dl->AddRect(highlightMin, highlightMax, selectionBorder, 4.0f, 0, 2.0f);
+                }
+
+                ImTextureRef folderTex = getFolderIconTexture();
+                const bool hasFolderIcon = (folderTex != ImTextureRef());
+
+                if (item.isDir && hasFolderIcon) {
+                    // Draw the folder PNG
+                    dl->AddImage(folderTex, ip0, ip1);
+                } else {
+                    // Fallback: colored square (used for non-folder items or if texture failed to load)
+                    ImU32 iconBg;
+                    if (item.isDir) {
+                        iconBg = IM_COL32(200, 180, 60, 255); // folder-ish color
+                    } else if (item.isCS) {
+                        iconBg = IM_COL32(60, 120, 200, 255); // scripts
+                    } else {
+                        iconBg = IM_COL32(100, 100, 100, 255); // generic file
+                    }
+                    const ImU32 iconBorder = IM_COL32(30, 60, 100, 255);
+                    dl->AddRectFilled(ip0, ip1, iconBg, 6.0f);
+                    dl->AddRect(ip0, ip1, iconBorder, 6.0f, 0, 2.0f);
+                }
                 ImGui::SetCursorScreenPos(ip0);
                 ImGui::InvisibleButton("icon", ImVec2(iconSize, iconSize));
 
-                bool iconDoubleClicked = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0);
+                bool iconHovered       = ImGui::IsItemHovered();
+                bool iconClicked       = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+                bool iconDoubleClicked = iconHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 
-                // Drag source from the icon
+                // Single click to select
+                if (iconClicked && !iconDoubleClicked) {
+                    hasSelection = true;
+                    selectedPath = path;
+                    selectedIsDir = isDir;
+                }
+
+                // Drag source from the icon - allow dragging all files and folders
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-                    ImGui::SetDragDropPayload("OMNIX_SCRIPT_PATH", path.c_str(), path.size() + 1);
+                    // Use different payload types for scripts vs general files
+                    if (item.isCS) {
+                        ImGui::SetDragDropPayload("OMNIX_SCRIPT_PATH", path.c_str(), path.size() + 1);
+                    } else {
+                        ImGui::SetDragDropPayload("OMNIX_FILE_PATH", path.c_str(), path.size() + 1);
+                    }
                     ImGui::TextUnformatted(name.c_str());
                     ImGui::EndDragDropSource();
+                }
+
+                // Drop target on folders - allow dropping files into folders
+                if (item.isDir && ImGui::BeginDragDropTarget()) {
+                    // Accept both script and general file drops
+                    const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("OMNIX_FILE_PATH");
+                    if (!payload) {
+                        payload = ImGui::AcceptDragDropPayload("OMNIX_SCRIPT_PATH");
+                    }
+                    
+                    if (payload) {
+                        const char* droppedPath = reinterpret_cast<const char*>(payload->Data);
+                        if (droppedPath && std::string(droppedPath) != path) {
+                            // Move the file/folder to the target directory
+                            std::error_code ec;
+                            fs::path srcPath(droppedPath);
+                            fs::path dstPath = fs::path(path) / srcPath.filename();
+                            
+                            // Avoid overwriting existing files
+                            if (fs::exists(dstPath, ec)) {
+                                std::string baseName = srcPath.stem().string();
+                                std::string ext = srcPath.extension().string();
+                                int copyIndex = 1;
+                                do {
+                                    std::string newName = baseName + " " + std::to_string(copyIndex) + ext;
+                                    dstPath = fs::path(path) / newName;
+                                    ++copyIndex;
+                                } while (fs::exists(dstPath, ec));
+                            }
+                            
+                            // Perform the move
+                            fs::rename(srcPath, dstPath, ec);
+                        }
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+
+                // Right-click directly on the icon -> set both persistent selection and context selection
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+                    hasSelection = true;
+                    selectedPath = path;
+                    selectedIsDir = isDir;
+                    ctxHasSelection = true;
+                    ctxPath = path;
+                    ctxIsDir = isDir;
+                    ImGui::OpenPopup("AssetsContextMenu");
                 }
 
                 // Name label under the icon (centered relative to icon, clipped to cell)
@@ -189,26 +499,353 @@ void UI::draw() {
 
                 // Row selectable for double click as well
                 if (iconDoubleClicked) {
-                    tryOpenWithVSCode(path);
+                    if (item.isDir) {
+                        fe.currentDir = path;
+                    } else {
+                        tryOpenWithVSCode(path);
+                    }
                 }
 
-                // Also allow dragging by the label area
-                ImGui::SetItemAllowOverlap();
+                // Also allow interactions by the label area
+                ImGui::SetNextItemAllowOverlap();
                 ImGui::SetCursorScreenPos(ImVec2(p0.x, p0.y + iconSize + 6.0f));
                 ImGui::InvisibleButton("lbl", ImVec2(cellWidth, labelHeight + 8.0f));
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                    tryOpenWithVSCode(path);
+                
+                bool labelClicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+                bool labelDoubleClicked = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+                
+                // Single click on label to select
+                if (labelClicked && !labelDoubleClicked) {
+                    hasSelection = true;
+                    selectedPath = path;
+                    selectedIsDir = isDir;
                 }
+                
+                // Double-click on label to open/navigate
+                if (labelDoubleClicked) {
+                    if (isDir) {
+                        fe.currentDir = path;
+                    } else {
+                        tryOpenWithVSCode(path);
+                    }
+                }
+                // Begin drag from label as well - allow dragging all files and folders
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-                    ImGui::SetDragDropPayload("OMNIX_SCRIPT_PATH", path.c_str(), path.size() + 1);
+                    if (item.isCS) {
+                        ImGui::SetDragDropPayload("OMNIX_SCRIPT_PATH", path.c_str(), path.size() + 1);
+                    } else {
+                        ImGui::SetDragDropPayload("OMNIX_FILE_PATH", path.c_str(), path.size() + 1);
+                    }
                     ImGui::TextUnformatted(name.c_str());
                     ImGui::EndDragDropSource();
+                }
+
+                // Drop target on folders from label area as well
+                if (item.isDir && ImGui::BeginDragDropTarget()) {
+                    const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("OMNIX_FILE_PATH");
+                    if (!payload) {
+                        payload = ImGui::AcceptDragDropPayload("OMNIX_SCRIPT_PATH");
+                    }
+                    
+                    if (payload) {
+                        const char* droppedPath = reinterpret_cast<const char*>(payload->Data);
+                        if (droppedPath && std::string(droppedPath) != path) {
+                            std::error_code ec;
+                            fs::path srcPath(droppedPath);
+                            fs::path dstPath = fs::path(path) / srcPath.filename();
+                            
+                            // Avoid overwriting existing files
+                            if (fs::exists(dstPath, ec)) {
+                                std::string baseName = srcPath.stem().string();
+                                std::string ext = srcPath.extension().string();
+                                int copyIndex = 1;
+                                do {
+                                    std::string newName = baseName + " " + std::to_string(copyIndex) + ext;
+                                    dstPath = fs::path(path) / newName;
+                                    ++copyIndex;
+                                } while (fs::exists(dstPath, ec));
+                            }
+                            
+                            fs::rename(srcPath, dstPath, ec);
+                        }
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+
+                // Right-click on this row (label area) -> set both persistent selection and context selection
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+                    hasSelection = true;
+                    selectedPath = path;
+                    selectedIsDir = isDir;
+                    ctxHasSelection = true;
+                    ctxPath = path;
+                    ctxIsDir = isDir;
+                    ImGui::OpenPopup("AssetsContextMenu");
                 }
 
                 ImGui::PopID();
                 ImGui::EndGroup();
 
                 col = (col + 1) % cols;
+            }
+
+            // Left-click on empty space: deselect
+            if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
+                ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !ImGui::IsAnyItemHovered())
+            {
+                hasSelection = false;
+                selectedPath.clear();
+                selectedIsDir = false;
+            }
+
+            // Right-click on empty space in the Assets window: open context menu with no item selection
+            // but use persistent selection if available
+            if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
+                ImGui::IsMouseReleased(ImGuiMouseButton_Right) &&
+                !ImGui::IsAnyItemHovered())
+            {
+                ctxHasSelection = hasSelection;
+                ctxPath = selectedPath;
+                ctxIsDir = selectedIsDir;
+                ImGui::OpenPopup("AssetsContextMenu");
+            }
+
+            // Shared context menu for the Assets panel
+            if (ImGui::BeginPopup("AssetsContextMenu")) {
+                File fileOps;
+
+                bool hasSelection    = ctxHasSelection;
+                bool selectedIsDir   = ctxIsDir;
+                bool selectedIsFile  = ctxHasSelection && !ctxIsDir;
+                bool canOpenInVSCode = selectedIsFile;
+
+                // ---- Create section ----
+                if (ImGui::MenuItem("New Folder")) {
+                    // Use right-clicked folder as base if any, otherwise current dir
+                    newFolderBaseDir = (ctxHasSelection && ctxIsDir) ? ctxPath : dir;
+                    newFolderNameBuf[0] = '\0';
+                    shouldOpenNewFolderPopup = true;
+                }
+
+                if (ImGui::MenuItem("New File...")) {
+                    // Use right-clicked folder as base if any, otherwise current dir
+                    newFileBaseDir = (ctxHasSelection && ctxIsDir) ? ctxPath : dir;
+                    newFileNameBuf[0] = '\0';
+                    shouldOpenNewFilePopup = true;
+                }
+
+                // ---- Selection-specific section ----
+                if (ImGui::MenuItem("Open in VS Code", nullptr, false, canOpenInVSCode)) {
+                    tryOpenWithVSCode(ctxPath);
+                }
+
+                if (ImGui::MenuItem("Duplicate", nullptr, false, hasSelection)) {
+                    fs::path p(ctxPath);
+                    std::string parentDir = p.parent_path().string();
+                    std::string baseName  = p.filename().string();
+                    fileOps.DuplicateFile(parentDir, baseName);
+                }
+
+                // Rename (file or folder)
+                if (ImGui::MenuItem("Rename...", nullptr, false, ctxHasSelection)) {
+                    fs::path p(ctxPath);
+                    std::string baseName = p.filename().string();
+                    std::snprintf(renameBuf, sizeof(renameBuf), "%s", baseName.c_str());
+                    renameTargetPath = ctxPath;
+                    renameTargetIsDir = ctxIsDir;
+                    shouldOpenRenamePopup = true;
+                }
+
+                // Copy / Paste (files only for CopyFile API)
+                if (ImGui::MenuItem("Copy", nullptr, false, selectedIsFile)) {
+                    clipboardPath    = ctxPath;
+                    clipboardHasFile = true;
+                }
+
+                bool canPaste = clipboardHasFile;
+                if (ImGui::MenuItem("Paste", nullptr, false, canPaste)) {
+                    if (clipboardHasFile) {
+                        fs::path src(clipboardPath);
+                        std::string srcDir  = src.parent_path().string();
+                        std::string srcName = src.filename().string();
+
+                        // Destination directory is the current Assets dir
+                        fs::path dstDir(dir);
+                        fs::path dstPath = dstDir / srcName;
+
+                        // Avoid overwriting existing files by appending " copy" suffix if needed
+                        std::string dstName = srcName;
+                        int copyIndex = 1;
+                        while (fs::exists(dstPath)) {
+                            // insert " copy" before extension if present
+                            std::string stem  = src.stem().string();
+                            std::string ext   = src.extension().string();
+                            dstName = stem + " copy";
+                            if (copyIndex > 1) {
+                                dstName += " " + std::to_string(copyIndex);
+                            }
+                            dstName += ext;
+                            dstPath = dstDir / dstName;
+                            ++copyIndex;
+                        }
+
+                        fileOps.CopyFile(srcDir, dir, srcName, dstName);
+                    }
+                }
+
+                if (ImGui::MenuItem("Delete", nullptr, false, hasSelection)) {
+                    fs::path p(ctxPath);
+                    std::string parentDir = p.parent_path().string();
+                    std::string baseName  = p.filename().string();
+                    if (selectedIsDir) {
+                        fileOps.DeleteDirectory(parentDir, baseName);
+                    } else {
+                        fileOps.DeleteFile(parentDir, baseName);
+                    }
+                }
+
+                ImGui::EndPopup();
+            }
+
+            // Open popups if flagged (must be outside other popups)
+            if (shouldOpenRenamePopup) {
+                shouldOpenRenamePopup = false;
+                ImGui::OpenPopup("AssetsRenamePopup");
+            }
+            if (shouldOpenNewFilePopup) {
+                shouldOpenNewFilePopup = false;
+                ImGui::OpenPopup("AssetsNewFilePopup");
+            }
+            if (shouldOpenNewFolderPopup) {
+                shouldOpenNewFolderPopup = false;
+                ImGui::OpenPopup("AssetsNewFolderPopup");
+            }
+
+            // New File popup (pre-creation naming, similar to Create C# Script)
+            if (ImGui::BeginPopupModal("AssetsNewFilePopup", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::TextUnformatted("New file name:");
+                bool enterPressed = ImGui::InputText("##assets_new_file_name", newFileNameBuf, sizeof(newFileNameBuf), ImGuiInputTextFlags_EnterReturnsTrue);
+
+                if (ImGui::IsWindowAppearing()) {
+                    ImGui::SetKeyboardFocusHere(-1);
+                }
+
+                bool createRequested = false;
+                if (ImGui::Button("Create") || enterPressed) createRequested = true;
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel##assets_new_file_cancel")) {
+                    ImGui::CloseCurrentPopup();
+                }
+
+                if (createRequested) {
+                    std::string rawName = newFileNameBuf;
+                    // trim spaces
+                    while (!rawName.empty() && (rawName.back() == ' ' || rawName.back() == '\t'))
+                        rawName.pop_back();
+                    size_t p = 0;
+                    while (p < rawName.size() && (rawName[p] == ' ' || rawName[p] == '\t'))
+                        ++p;
+                    rawName.erase(0, p);
+                    if (rawName.empty()) rawName = "New File";
+
+                    std::string baseDir = newFileBaseDir.empty() ? dir : newFileBaseDir;
+                    File f;
+                    f.CreateFile(baseDir, rawName);
+
+                    // select the new file in both context and persistent selection
+                    fs::path createdPath = fs::path(baseDir) / rawName;
+                    hasSelection = true;
+                    selectedPath = createdPath.string();
+                    selectedIsDir = false;
+                    ctxHasSelection = true;
+                    ctxIsDir = false;
+                    ctxPath = createdPath.string();
+
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
+            }
+
+            // New Folder popup (pre-creation naming)
+            if (ImGui::BeginPopupModal("AssetsNewFolderPopup", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::TextUnformatted("New folder name:");
+                bool enterPressed = ImGui::InputText("##assets_new_folder_name", newFolderNameBuf, sizeof(newFolderNameBuf), ImGuiInputTextFlags_EnterReturnsTrue);
+
+                if (ImGui::IsWindowAppearing()) {
+                    ImGui::SetKeyboardFocusHere(-1);
+                }
+
+                bool createRequested = false;
+                if (ImGui::Button("Create##assets_new_folder") || enterPressed) createRequested = true;
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel##assets_new_folder_cancel")) {
+                    ImGui::CloseCurrentPopup();
+                }
+
+                if (createRequested) {
+                    std::string rawName = newFolderNameBuf;
+                    // trim spaces
+                    while (!rawName.empty() && (rawName.back() == ' ' || rawName.back() == '\t'))
+                        rawName.pop_back();
+                    size_t p = 0;
+                    while (p < rawName.size() && (rawName[p] == ' ' || rawName[p] == '\t'))
+                        ++p;
+                    rawName.erase(0, p);
+                    if (rawName.empty()) rawName = "New Folder";
+
+                    std::string baseDir = newFolderBaseDir.empty() ? dir : newFolderBaseDir;
+                    File f;
+                    f.CreateDirectory(baseDir, rawName);
+
+                    // select the new folder in both context and persistent selection
+                    fs::path createdPath = fs::path(baseDir) / rawName;
+                    hasSelection = true;
+                    selectedPath = createdPath.string();
+                    selectedIsDir = true;
+                    ctxHasSelection = true;
+                    ctxIsDir = true;
+                    ctxPath = createdPath.string();
+
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
+            }
+
+            // Rename popup
+            if (ImGui::BeginPopupModal("AssetsRenamePopup", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::TextUnformatted("Rename to:");
+                bool enterPressed = ImGui::InputText("##rename_name", renameBuf, sizeof(renameBuf), ImGuiInputTextFlags_EnterReturnsTrue);
+
+                if (ImGui::IsWindowAppearing()) {
+                    ImGui::SetKeyboardFocusHere(-1);
+                }
+
+                if (ImGui::Button("Apply") || enterPressed) {
+                    if (!renameTargetPath.empty()) {
+                        fs::path p(renameTargetPath);
+                        std::string parentDir = p.parent_path().string();
+                        std::string oldName   = p.filename().string();
+                        std::string newName   = renameBuf;
+                        if (!newName.empty() && newName != oldName) {
+                            File f;
+                            f.RenameFile(parentDir, oldName, newName);
+                            
+                            // Update selection if the renamed item was selected
+                            if (hasSelection && selectedPath == renameTargetPath) {
+                                selectedPath = (fs::path(parentDir) / newName).string();
+                            }
+                        }
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel##rename")) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
             }
         }
         ImGui::End();
@@ -384,18 +1021,27 @@ void UI::draw() {
                 if (w != nullptr) {
                     ImRect target = w->InnerRect;
                     if (ImGui::BeginDragDropTargetCustom(target, w->ID)) {
-                        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("OMNIX_SCRIPT_PATH")) {
+                        // Accept both script and general file payloads (but only process .cs files)
+                        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("OMNIX_SCRIPT_PATH");
+                        if (!payload) {
+                            payload = ImGui::AcceptDragDropPayload("OMNIX_FILE_PATH");
+                        }
+                        
+                        if (payload) {
                             const char* droppedPath = reinterpret_cast<const char*>(payload->Data);
                             if (droppedPath) {
-                                ScriptState& st = scriptState();
-                                st.currentScriptPath = droppedPath;
                                 fs::path p(droppedPath);
-                                st.currentScriptName = p.filename().string();
-                                st.loaded = true;
-                                st.awaitingSave = false;
-                                std::error_code ec;
-                                if (fs::exists(st.currentScriptPath, ec)) {
-                                    st.lastWriteTime = fs::last_write_time(st.currentScriptPath, ec);
+                                // Only process .cs files in Inspector
+                                if (p.extension() == ".cs") {
+                                    ScriptState& st = scriptState();
+                                    st.currentScriptPath = droppedPath;
+                                    st.currentScriptName = p.filename().string();
+                                    st.loaded = true;
+                                    st.awaitingSave = false;
+                                    std::error_code ec;
+                                    if (fs::exists(st.currentScriptPath, ec)) {
+                                        st.lastWriteTime = fs::last_write_time(st.currentScriptPath, ec);
+                                    }
                                 }
                             }
                         }
@@ -577,4 +1223,7 @@ void UI::draw() {
 
 }
 
+void UI::setProjectName(const std::string& name) {
+    g_projectName = name;
+}
 

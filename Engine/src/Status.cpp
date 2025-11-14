@@ -33,18 +33,19 @@ namespace Status {
     void SetCancelled(const std::string& s) { cancelledStatus = s; }
 
     // Getters
-    std::string GetLoadingStatus() { return loadingStatus; }
-    std::string GetRuntimeStatus() { return runtimeStatus; }
-    std::string GetError() { return errorStatus; }
-    std::string GetWarning() { return warningStatus; }
-    std::string GetInfo() { return infoStatus; }
-    std::string GetDebug() { return debugStatus; }
-    std::string GetTrace() { return traceStatus; }
-    std::string GetFatal() { return fatalStatus; }
-    std::string GetUnknown() { return unknownStatus; }
-    std::string GetSuccess() { return successStatus; }
-    std::string GetFailure() { return failureStatus; }
-    std::string GetPending() { return pendingStatus; }
-    std::string GetCancelled() { return cancelledStatus; }
+    std::string GetLoadingStatus() { std::string out = loadingStatus; loadingStatus = ""; return out; }
+    std::string GetRuntimeStatus()  { std::string out = runtimeStatus;  runtimeStatus  = ""; return out; }
+    std::string GetError()          { std::string out = errorStatus;    errorStatus    = ""; return out; }
+    std::string GetWarning()        { std::string out = warningStatus;  warningStatus  = ""; return out; }
+    std::string GetInfo()           { std::string out = infoStatus;     infoStatus     = ""; return out; }
+    std::string GetDebug()          { std::string out = debugStatus;    debugStatus    = ""; return out; }
+    std::string GetTrace()          { std::string out = traceStatus;    traceStatus    = ""; return out; }
+    std::string GetFatal()          { std::string out = fatalStatus;    fatalStatus    = ""; return out; }
+    std::string GetUnknown()        { std::string out = unknownStatus;  unknownStatus  = ""; return out; }
+    std::string GetSuccess()        { std::string out = successStatus;  successStatus  = ""; return out; }
+    std::string GetFailure()        { std::string out = failureStatus;  failureStatus  = ""; return out; }
+    std::string GetPending()        { std::string out = pendingStatus;  pendingStatus  = ""; return out; }
+    std::string GetCancelled()      { std::string out = cancelledStatus; cancelledStatus= ""; return out; }
 
+    
 }

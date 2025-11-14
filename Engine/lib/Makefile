@@ -198,6 +198,30 @@ src/EngineInit.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Engine.dir/build.make CMakeFiles/Engine.dir/src/EngineInit.cpp.s
 .PHONY : src/EngineInit.cpp.s
 
+src/File.o: src/File.cpp.o
+.PHONY : src/File.o
+
+# target to build an object file
+src/File.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Engine.dir/build.make CMakeFiles/Engine.dir/src/File.cpp.o
+.PHONY : src/File.cpp.o
+
+src/File.i: src/File.cpp.i
+.PHONY : src/File.i
+
+# target to preprocess a source file
+src/File.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Engine.dir/build.make CMakeFiles/Engine.dir/src/File.cpp.i
+.PHONY : src/File.cpp.i
+
+src/File.s: src/File.cpp.s
+.PHONY : src/File.s
+
+# target to generate assembly for a file
+src/File.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Engine.dir/build.make CMakeFiles/Engine.dir/src/File.cpp.s
+.PHONY : src/File.cpp.s
+
 src/Main.o: src/Main.cpp.o
 .PHONY : src/Main.o
 
@@ -262,6 +286,9 @@ help:
 	@echo "... src/EngineInit.o"
 	@echo "... src/EngineInit.i"
 	@echo "... src/EngineInit.s"
+	@echo "... src/File.o"
+	@echo "... src/File.i"
+	@echo "... src/File.s"
 	@echo "... src/Main.o"
 	@echo "... src/Main.i"
 	@echo "... src/Main.s"

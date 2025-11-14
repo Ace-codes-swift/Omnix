@@ -5,8 +5,21 @@
 #include "Renderer.h"
 #include "UI.h"
 
+#include "EngineLib/EngineInit.hpp"
+#include "EngineLib/Status.hpp"
+
 int main() {
     std::cout << "Starting Omnix..." << std::endl;
+    
+
+    bool newProject = true;
+    int startEngineMode = 1;
+    std::string projectName = "NewProject";
+    EngineInit engineInit;
+    engineInit.Init(startEngineMode, projectName, newProject);
+    
+    // Set the project name for the UI file explorer
+    UI::setProjectName(projectName);
     
     // Create window manager
     WindowManager windowManager;
@@ -64,6 +77,10 @@ int main() {
         
         // Swap buffers
         windowManager.swapBuffers();
+    
+    
+        std::cout << Status::GetLoadingStatus() << std::endl;
+        std::cout << Status::GetRuntimeStatus() << std::endl;
     }
     
     std::cout << "Shutting down Omnix..." << std::endl;

@@ -6,7 +6,7 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/Users/atech/cursor/Omnix/Engine/include -I/Users/atech/cursor/Omnix/Engine/vendor/EnTT -I/Users/atech/cursor/Omnix/Engine -I/Users/atech/cursor/Omnix/Engine/ProjTemplates
 
-CXX_FLAGSarm64 = -std=gnu++17 -arch arm64 -Wall -Wextra -Wpedantic
+CXX_FLAGSarm64 = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -Wall -Wextra -Wpedantic
 
-CXX_FLAGS = -std=gnu++17 -arch arm64 -Wall -Wextra -Wpedantic
+CXX_FLAGS = -O3 -DNDEBUG -std=gnu++17 -arch arm64 -Wall -Wextra -Wpedantic
 

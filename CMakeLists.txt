@@ -56,6 +56,8 @@ set(HEADERS
     src/Panels.h
     src/UI.h
     src/WindowManager.h
+    src/EngineLib/EngineInit.hpp
+    src/EngineLib/Status.hpp
 )
 
 # Create executable
@@ -89,6 +91,7 @@ target_link_libraries(${PROJECT_NAME}
     OpenGL::GL
     glfw
     imgui
+    "${CMAKE_SOURCE_DIR}/src/EngineLib/libEngine.a"
     "-framework Cocoa"
     "-framework IOKit"
     "-framework CoreVideo"
@@ -148,3 +151,18 @@ if (EXISTS ${POPPINS_FONT})
     set_source_files_properties(${POPPINS_FONT} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
     target_sources(${PROJECT_NAME} PRIVATE ${POPPINS_FONT})
 endif()
+
+# Copy project templates into the app bundle Resources directory so EngineInit
+# can populate new projects from them at runtime.
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/Engine/ProjTemplates"
+        "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Resources/ProjTemplates"
+)
+
+# Copy runtime assets (e.g. folder icons) into the app bundle Resources/Assets
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/resources/Assets"
+        "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Resources/Assets"
+)
