@@ -17,6 +17,8 @@ add_library(Engine STATIC ${SOURCES})
 target_include_directories(Engine PUBLIC
 ${CMAKE_CURRENT_SOURCE_DIR}/include
 ${CMAKE_CURRENT_SOURCE_DIR}/vendor/EnTT
+${CMAKE_CURRENT_SOURCE_DIR}
+${CMAKE_CURRENT_SOURCE_DIR}/ProjTemplates
 )
 
 # Optional: Add compile options

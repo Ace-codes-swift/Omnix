@@ -1,0 +1,7 @@
+/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles/Engine.dir
+/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles/edit_cache.dir
+/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles/rebuild_cache.dir
+/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles/list_install_components.dir
+/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles/install.dir
+/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles/install/local.dir
+/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles/install/strip.dir
