@@ -270,6 +270,30 @@ src/Status.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Engine.dir/build.make CMakeFiles/Engine.dir/src/Status.cpp.s
 .PHONY : src/Status.cpp.s
 
+src/ecs.o: src/ecs.cpp.o
+.PHONY : src/ecs.o
+
+# target to build an object file
+src/ecs.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Engine.dir/build.make CMakeFiles/Engine.dir/src/ecs.cpp.o
+.PHONY : src/ecs.cpp.o
+
+src/ecs.i: src/ecs.cpp.i
+.PHONY : src/ecs.i
+
+# target to preprocess a source file
+src/ecs.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Engine.dir/build.make CMakeFiles/Engine.dir/src/ecs.cpp.i
+.PHONY : src/ecs.cpp.i
+
+src/ecs.s: src/ecs.cpp.s
+.PHONY : src/ecs.s
+
+# target to generate assembly for a file
+src/ecs.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Engine.dir/build.make CMakeFiles/Engine.dir/src/ecs.cpp.s
+.PHONY : src/ecs.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -295,6 +319,9 @@ help:
 	@echo "... src/Status.o"
 	@echo "... src/Status.i"
 	@echo "... src/Status.s"
+	@echo "... src/ecs.o"
+	@echo "... src/ecs.i"
+	@echo "... src/ecs.s"
 .PHONY : help
 
 

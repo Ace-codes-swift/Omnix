@@ -12,6 +12,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/atech/cursor/Omnix/Engine/src/File.cpp" "CMakeFiles/Engine.dir/src/File.cpp.o" "gcc" "CMakeFiles/Engine.dir/src/File.cpp.o.d"
   "/Users/atech/cursor/Omnix/Engine/src/Main.cpp" "CMakeFiles/Engine.dir/src/Main.cpp.o" "gcc" "CMakeFiles/Engine.dir/src/Main.cpp.o.d"
   "/Users/atech/cursor/Omnix/Engine/src/Status.cpp" "CMakeFiles/Engine.dir/src/Status.cpp.o" "gcc" "CMakeFiles/Engine.dir/src/Status.cpp.o.d"
+  "/Users/atech/cursor/Omnix/Engine/src/ecs.cpp" "CMakeFiles/Engine.dir/src/ecs.cpp.o" "gcc" "CMakeFiles/Engine.dir/src/ecs.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

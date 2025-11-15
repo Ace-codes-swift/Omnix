@@ -128,12 +128,27 @@ CMakeFiles/Engine.dir/src/Status.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/Engine.dir/src/Status.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/atech/cursor/Omnix/Engine/src/Status.cpp -o CMakeFiles/Engine.dir/src/Status.cpp.s
 
+CMakeFiles/Engine.dir/src/ecs.cpp.o: CMakeFiles/Engine.dir/flags.make
+CMakeFiles/Engine.dir/src/ecs.cpp.o: /Users/atech/cursor/Omnix/Engine/src/ecs.cpp
+CMakeFiles/Engine.dir/src/ecs.cpp.o: CMakeFiles/Engine.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/Engine.dir/src/ecs.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/Engine.dir/src/ecs.cpp.o -MF CMakeFiles/Engine.dir/src/ecs.cpp.o.d -o CMakeFiles/Engine.dir/src/ecs.cpp.o -c /Users/atech/cursor/Omnix/Engine/src/ecs.cpp
+
+CMakeFiles/Engine.dir/src/ecs.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/Engine.dir/src/ecs.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/atech/cursor/Omnix/Engine/src/ecs.cpp > CMakeFiles/Engine.dir/src/ecs.cpp.i
+
+CMakeFiles/Engine.dir/src/ecs.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/Engine.dir/src/ecs.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/atech/cursor/Omnix/Engine/src/ecs.cpp -o CMakeFiles/Engine.dir/src/ecs.cpp.s
+
 # Object files for target Engine
 Engine_OBJECTS = \
 "CMakeFiles/Engine.dir/src/EngineInit.cpp.o" \
 "CMakeFiles/Engine.dir/src/File.cpp.o" \
 "CMakeFiles/Engine.dir/src/Main.cpp.o" \
-"CMakeFiles/Engine.dir/src/Status.cpp.o"
+"CMakeFiles/Engine.dir/src/Status.cpp.o" \
+"CMakeFiles/Engine.dir/src/ecs.cpp.o"
 
 # External object files for target Engine
 Engine_EXTERNAL_OBJECTS =
@@ -142,9 +157,10 @@ libEngine.a: CMakeFiles/Engine.dir/src/EngineInit.cpp.o
 libEngine.a: CMakeFiles/Engine.dir/src/File.cpp.o
 libEngine.a: CMakeFiles/Engine.dir/src/Main.cpp.o
 libEngine.a: CMakeFiles/Engine.dir/src/Status.cpp.o
+libEngine.a: CMakeFiles/Engine.dir/src/ecs.cpp.o
 libEngine.a: CMakeFiles/Engine.dir/build.make
 libEngine.a: CMakeFiles/Engine.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX static library libEngine.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/atech/cursor/Omnix/Engine/lib/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX static library libEngine.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/Engine.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/Engine.dir/link.txt --verbose=$(VERBOSE)
 

@@ -77,10 +77,6 @@ int main() {
         
         // Swap buffers
         windowManager.swapBuffers();
-    
-    
-        std::cout << Status::GetLoadingStatus() << std::endl;
-        std::cout << Status::GetRuntimeStatus() << std::endl;
     }
     
     std::cout << "Shutting down Omnix..." << std::endl;

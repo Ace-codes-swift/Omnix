@@ -7,6 +7,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/Engine.dir/src/Main.cpp.o.d"
   "CMakeFiles/Engine.dir/src/Status.cpp.o"
   "CMakeFiles/Engine.dir/src/Status.cpp.o.d"
+  "CMakeFiles/Engine.dir/src/ecs.cpp.o"
+  "CMakeFiles/Engine.dir/src/ecs.cpp.o.d"
   "libEngine.a"
   "libEngine.pdb"
 )

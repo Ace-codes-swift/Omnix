@@ -2,7 +2,7 @@
 
 namespace Status {
 
-    // Internal storage for statuses
+    // Internal storage for statuses (for backward compatibility)
     static std::string loadingStatus;
     static std::string runtimeStatus;
     static std::string errorStatus;
@@ -17,22 +17,32 @@ namespace Status {
     static std::string pendingStatus;
     static std::string cancelledStatus;
 
-    // Setters
-    void SetLoadingStatus(const std::string& s) { loadingStatus = s; }
-    void SetRuntimeStatus(const std::string& s) { runtimeStatus = s; }
-    void SetError(const std::string& s) { errorStatus = s; }
-    void SetWarning(const std::string& s) { warningStatus = s; }
-    void SetInfo(const std::string& s) { infoStatus = s; }
-    void SetDebug(const std::string& s) { debugStatus = s; }
-    void SetTrace(const std::string& s) { traceStatus = s; }
-    void SetFatal(const std::string& s) { fatalStatus = s; }
-    void SetUnknown(const std::string& s) { unknownStatus = s; }
-    void SetSuccess(const std::string& s) { successStatus = s; }
-    void SetFailure(const std::string& s) { failureStatus = s; }
-    void SetPending(const std::string& s) { pendingStatus = s; }
-    void SetCancelled(const std::string& s) { cancelledStatus = s; }
+    // Log history storage
+    static std::vector<LogEntry> logHistory;
 
-    // Getters
+    // Helper to add to log history
+    static void AddLog(LogType type, const std::string& message) {
+        if (!message.empty()) {
+            logHistory.push_back({type, message});
+        }
+    }
+
+    // Setters
+    void SetLoadingStatus(const std::string& s) { loadingStatus = s; AddLog(LogType::Loading, s); }
+    void SetRuntimeStatus(const std::string& s) { runtimeStatus = s; AddLog(LogType::Runtime, s); }
+    void SetError(const std::string& s) { errorStatus = s; AddLog(LogType::Error, s); }
+    void SetWarning(const std::string& s) { warningStatus = s; AddLog(LogType::Warning, s); }
+    void SetInfo(const std::string& s) { infoStatus = s; AddLog(LogType::Info, s); }
+    void SetDebug(const std::string& s) { debugStatus = s; AddLog(LogType::Debug, s); }
+    void SetTrace(const std::string& s) { traceStatus = s; AddLog(LogType::Trace, s); }
+    void SetFatal(const std::string& s) { fatalStatus = s; AddLog(LogType::Fatal, s); }
+    void SetUnknown(const std::string& s) { unknownStatus = s; AddLog(LogType::Unknown, s); }
+    void SetSuccess(const std::string& s) { successStatus = s; AddLog(LogType::Success, s); }
+    void SetFailure(const std::string& s) { failureStatus = s; AddLog(LogType::Failure, s); }
+    void SetPending(const std::string& s) { pendingStatus = s; AddLog(LogType::Pending, s); }
+    void SetCancelled(const std::string& s) { cancelledStatus = s; AddLog(LogType::Cancelled, s); }
+
+    // Getters (for backward compatibility)
     std::string GetLoadingStatus() { std::string out = loadingStatus; loadingStatus = ""; return out; }
     std::string GetRuntimeStatus()  { std::string out = runtimeStatus;  runtimeStatus  = ""; return out; }
     std::string GetError()          { std::string out = errorStatus;    errorStatus    = ""; return out; }
@@ -47,5 +57,12 @@ namespace Status {
     std::string GetPending()        { std::string out = pendingStatus;  pendingStatus  = ""; return out; }
     std::string GetCancelled()      { std::string out = cancelledStatus; cancelledStatus= ""; return out; }
 
-    
+    // New log history functions
+    const std::vector<LogEntry>& GetAllLogs() {
+        return logHistory;
+    }
+
+    void ClearAllLogs() {
+        logHistory.clear();
+    }
 }

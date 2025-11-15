@@ -3,6 +3,7 @@
 #include "imgui_internal.h"
 #include "Panels.h"
 #include "EngineLib/File.hpp"
+#include "EngineLib/Status.hpp"
 #include <OpenGL/gl3.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
@@ -23,6 +24,56 @@ namespace {
     
     // Global project name storage
     static std::string g_projectName = "NewProject"; // Default matches main.cpp
+    
+    // Global log colors storage with default values
+    static ImVec4 g_logColors[13] = {
+        ImVec4(0.5f, 0.7f, 1.0f, 1.0f),   // Loading - light blue
+        ImVec4(0.5f, 1.0f, 0.5f, 1.0f),   // Runtime - light green
+        ImVec4(0.86f, 0.08f, 0.24f, 1.0f), // Error - crimson red
+        ImVec4(1.0f, 0.75f, 0.3f, 1.0f),  // Warning - light yellowish orange
+        ImVec4(1.0f, 1.0f, 1.0f, 1.0f),   // Info - white
+        ImVec4(0.3f, 0.5f, 1.0f, 1.0f),   // Debug - blue
+        ImVec4(0.7f, 0.3f, 0.9f, 1.0f),   // Trace - purple
+        ImVec4(1.0f, 0.0f, 0.0f, 1.0f),   // Fatal - bright red
+        ImVec4(0.6f, 0.6f, 0.6f, 1.0f),   // Unknown - gray
+        ImVec4(0.0f, 1.0f, 0.0f, 1.0f),   // Success - green
+        ImVec4(1.0f, 0.2f, 0.2f, 1.0f),   // Failure - red
+        ImVec4(1.0f, 1.0f, 0.0f, 1.0f),   // Pending - yellow
+        ImVec4(0.7f, 0.2f, 0.2f, 1.0f)    // Cancelled - darkish red
+    };
+    
+    static const char* g_logColorNames[13] = {
+        "Loading", "Runtime", "Error", "Warning", "Info", "Debug", "Trace",
+        "Fatal", "Unknown", "Success", "Failure", "Pending", "Cancelled"
+    };
+    
+    // ImGui .ini settings handlers for log colors
+    static void* LogColorsReadOpen(ImGuiContext*, ImGuiSettingsHandler*, const char* name) {
+        if (strcmp(name, "LogColors") == 0)
+            return (void*)1; // Return non-null to indicate we handle this
+        return nullptr;
+    }
+    
+    static void LogColorsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const char* line) {
+        int index;
+        float r, g, b;
+        if (sscanf(line, "Color%d=%f,%f,%f", &index, &r, &g, &b) == 4) {
+            if (index >= 0 && index < 13) {
+                g_logColors[index] = ImVec4(r, g, b, 1.0f);
+            }
+        }
+    }
+    
+    static void LogColorsWriteAll(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf) {
+        buf->appendf("[%s][LogColors]\n", handler->TypeName);
+        for (int i = 0; i < 13; i++) {
+            buf->appendf("Color%d=%.3f,%.3f,%.3f\n", i, 
+                        g_logColors[i].x, g_logColors[i].y, g_logColors[i].z);
+        }
+        buf->append("\n");
+    }
+    
+    static bool g_settingsHandlerInitialized = false;
 
     struct ScriptState {
         std::string scriptsDir;
@@ -239,11 +290,139 @@ namespace {
 
 void UI::draw() {
     
+    // Register settings handler for log colors (once per session)
+    if (!g_settingsHandlerInitialized) {
+        ImGuiSettingsHandler handler;
+        handler.TypeName = "OmnixLogColors";
+        handler.TypeHash = ImHashStr("OmnixLogColors");
+        handler.ReadOpenFn = LogColorsReadOpen;
+        handler.ReadLineFn = LogColorsReadLine;
+        handler.WriteAllFn = LogColorsWriteAll;
+        ImGui::AddSettingsHandler(&handler);
+        g_settingsHandlerInitialized = true;
+    }
+    
+    // Set thinner borders and sharper rounding globally for all UI elements
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.FrameBorderSize = 0.1f;      // Thinner borders on input boxes/buttons
+    style.ChildBorderSize = 2.0f;      // Thinner borders on child windows/panels
+    style.WindowBorderSize = 0.0f;     // No borders on main windows
+    style.AntiAliasedLines = true;     // Keep lines smooth
+    style.AntiAliasedFill = true;      // Keep fills smooth but crisp
+    style.CircleTessellationMaxError = 0.1f; // Sharper circles/rounded corners (lower = sharper)
+    
     if (Panels::showOmnix) {
         ImGui::SetNextWindowBgAlpha(1.0f); 
-        if (ImGui::Begin("Omnix", &Panels::showOmnix)) {
-            ImGui::Text("Hello, Omnix!");
+        if (ImGui::Begin("Output", &Panels::showOmnix)) {
+            // Display FPS at the top
             ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+            ImGui::Separator();
+            
+            // Button to clear logs with rounded corners
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+            if (ImGui::Button("Clear Logs")) {
+                Status::ClearAllLogs();
+            }
+            ImGui::PopStyleVar();
+            ImGui::SameLine();
+            
+            // Auto-scroll toggle
+            static bool autoScroll = true;
+            ImGui::Checkbox("Auto-scroll", &autoScroll);
+            
+            // Color customization panel (collapsible)
+            if (ImGui::CollapsingHeader("Log Colors")) {
+                ImGui::Indent();
+                
+                // Color pickers for each log type - colors are saved/loaded via custom .ini handler
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+                ImGui::ColorEdit3("Loading##LogColor", (float*)&g_logColors[0]);
+                ImGui::ColorEdit3("Runtime##LogColor", (float*)&g_logColors[1]);
+                ImGui::ColorEdit3("Error##LogColor", (float*)&g_logColors[2]);
+                ImGui::ColorEdit3("Warning##LogColor", (float*)&g_logColors[3]);
+                ImGui::ColorEdit3("Info##LogColor", (float*)&g_logColors[4]);
+                ImGui::ColorEdit3("Debug##LogColor", (float*)&g_logColors[5]);
+                ImGui::ColorEdit3("Trace##LogColor", (float*)&g_logColors[6]);
+                ImGui::ColorEdit3("Fatal##LogColor", (float*)&g_logColors[7]);
+                ImGui::ColorEdit3("Unknown##LogColor", (float*)&g_logColors[8]);
+                ImGui::ColorEdit3("Success##LogColor", (float*)&g_logColors[9]);
+                ImGui::ColorEdit3("Failure##LogColor", (float*)&g_logColors[10]);
+                ImGui::ColorEdit3("Pending##LogColor", (float*)&g_logColors[11]);
+                ImGui::ColorEdit3("Cancelled##LogColor", (float*)&g_logColors[12]);
+                ImGui::PopStyleVar();
+                
+                ImGui::Unindent();
+            }
+            
+            ImGui::Separator();
+            
+            // Scrollable log area with rounded corners
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 10.0f);
+            ImGui::BeginChild("LogScrollArea", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+            
+            // Get all logs from Status
+            const std::vector<Status::LogEntry>& logs = Status::GetAllLogs();
+            
+            // Helper lambda to get color for log type (uses the global customizable colors)
+            auto GetLogColor = [&](Status::LogType type) -> ImVec4 {
+                switch (type) {
+                    case Status::LogType::Loading:    return g_logColors[0];
+                    case Status::LogType::Runtime:    return g_logColors[1];
+                    case Status::LogType::Error:      return g_logColors[2];
+                    case Status::LogType::Warning:    return g_logColors[3];
+                    case Status::LogType::Info:       return g_logColors[4];
+                    case Status::LogType::Debug:      return g_logColors[5];
+                    case Status::LogType::Trace:      return g_logColors[6];
+                    case Status::LogType::Fatal:      return g_logColors[7];
+                    case Status::LogType::Unknown:    return g_logColors[8];
+                    case Status::LogType::Success:    return g_logColors[9];
+                    case Status::LogType::Failure:    return g_logColors[10];
+                    case Status::LogType::Pending:    return g_logColors[11];
+                    case Status::LogType::Cancelled:  return g_logColors[12];
+                    default:                          return g_logColors[4]; // Info
+                }
+            };
+            
+            // Helper lambda to get log type name
+            auto GetLogTypeName = [](Status::LogType type) -> const char* {
+                switch (type) {
+                    case Status::LogType::Loading:    return "[LOADING]";
+                    case Status::LogType::Runtime:    return "[RUNTIME]";
+                    case Status::LogType::Error:      return "[ERROR]";
+                    case Status::LogType::Warning:    return "[WARNING]";
+                    case Status::LogType::Info:       return "[INFO]";
+                    case Status::LogType::Debug:      return "[DEBUG]";
+                    case Status::LogType::Trace:      return "[TRACE]";
+                    case Status::LogType::Fatal:      return "[FATAL]";
+                    case Status::LogType::Unknown:    return "[UNKNOWN]";
+                    case Status::LogType::Success:    return "[SUCCESS]";
+                    case Status::LogType::Failure:    return "[FAILURE]";
+                    case Status::LogType::Pending:    return "[PENDING]";
+                    case Status::LogType::Cancelled:  return "[CANCELLED]";
+                    default:                          return "[LOG]";
+                }
+            };
+            
+            // Display all logs
+            for (const auto& log : logs) {
+                ImVec4 color = GetLogColor(log.type);
+                ImGui::PushStyleColor(ImGuiCol_Text, color);
+                
+                // Display log type prefix and message
+                ImGui::TextUnformatted(GetLogTypeName(log.type));
+                ImGui::SameLine();
+                ImGui::TextWrapped("%s", log.message.c_str());
+                
+                ImGui::PopStyleColor();
+            }
+            
+            // Auto-scroll to bottom if enabled
+            if (autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+                ImGui::SetScrollHereY(1.0f);
+            }
+            
+            ImGui::EndChild();
+            ImGui::PopStyleVar(); // Pop ChildRounding
         }
         ImGui::End();
     }
@@ -261,6 +440,9 @@ void UI::draw() {
 
             // Navigation bar: Up button + current path (relative to root where possible)
             {
+                
+                
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
                 if (ImGui::Button("Back")) {
                     if (dir != rootDir) {
                         fs::path p(dir);
@@ -276,6 +458,8 @@ void UI::draw() {
                     }
                 }
                 ImGui::SameLine();
+                ImGui::PopStyleVar();
+
 
                 std::string displayPath;
                 if (dir.size() >= rootDir.size() &&
@@ -1176,11 +1360,15 @@ void UI::draw() {
                 ImGui::SetCursorScreenPos(savedCursor);
             }
 
-    // Per-axis Unity-like label drags + numeric inputs
+    // Per-axis Unity-like label drags + numeric inputs with rounded corners
     const char* axisLabels[3] = {"X", "Y", "Z"};
     const ImU32 axisBg[3] = { IM_COL32(170, 60, 60, 200), IM_COL32(60, 170, 60, 200), IM_COL32(60, 120, 200, 200) };
     const ImU32 axisBorder = IM_COL32(40, 40, 40, 255);
-    const ImGuiStyle& style = ImGui::GetStyle();
+    const ImGuiStyle& localStyle = ImGui::GetStyle();
+    
+    // Push style for rounded corners on input boxes
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+    
     for (int i = 0; i < 3; ++i) {
         // Label box sized to frame height with centered text and colored background
         const float labelW = 26.0f;
@@ -1189,9 +1377,9 @@ void UI::draw() {
         ImVec2 labelBR  = ImVec2(labelPos.x + labelW, labelPos.y + labelH);
 
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        float rounding = style.FrameRounding;
-        dl->AddRectFilled(labelPos, labelBR, axisBg[i], rounding);
-        dl->AddRect(labelPos, labelBR, axisBorder, rounding, 0, 1.0f);
+        // Use rounded corners for label boxes too (sharper with more defined edges)
+        dl->AddRectFilled(labelPos, labelBR, axisBg[i], 8.0f);
+        dl->AddRect(labelPos, labelBR, axisBorder, 8.0f, 0, 0.5f);
         RenderCenteredTextInRect(labelPos, labelBR, axisLabels[i]);
 
         // Make the label box interactive for drag
@@ -1213,6 +1401,8 @@ void UI::draw() {
         snprintf(buf, sizeof(buf), "##val_%d", i);
         ImGui::InputFloat(buf, &scale[i], 0.01f, 0.1f, "%.3f");
     }
+    
+    ImGui::PopStyleVar(); // Pop FrameRounding for inputs
 
         }
         ImGui::End();

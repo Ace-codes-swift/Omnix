@@ -49,6 +49,9 @@ void EngineInit::Init(int StartEngineMode, std::string ProjectName, bool NewProj
             fs::copy(templatePath, fs::path(omnix_projects + "/" + ProjectName), fs::copy_options::recursive);
         } catch(const std::exception& e) {
             Status::SetLoadingStatus(std::string("Failed to copy template: ") + e.what());
+            if (fs::exists(omnix_projects + "/" + ProjectName)) {
+                Status::SetLoadingStatus("Loading existing project directory" + omnix_projects + "/" + ProjectName);
+            }
             return;
         }
 

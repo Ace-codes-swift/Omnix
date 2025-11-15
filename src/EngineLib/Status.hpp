@@ -1,7 +1,30 @@
 #pragma once
 #include <string>
+#include <vector>
 
 namespace Status {
+
+    // Log entry with type and message
+    enum class LogType {
+        Loading,      // light blue
+        Runtime,      // light green
+        Error,        // crimson red
+        Warning,      // light yellowish orange
+        Info,         // white
+        Debug,        // blue
+        Trace,        // purple
+        Fatal,        // bright red
+        Unknown,      // gray
+        Success,      // green
+        Failure,      // red
+        Pending,      // yellow
+        Cancelled     // darkish red
+    };
+
+    struct LogEntry {
+        LogType type;
+        std::string message;
+    };
 
     // Setters - Called by library modules to update the engine status
     void SetLoadingStatus(const std::string& s);
@@ -32,4 +55,8 @@ namespace Status {
     std::string GetFailure();
     std::string GetPending();
     std::string GetCancelled();
+
+    // Get all log entries for display
+    const std::vector<LogEntry>& GetAllLogs();
+    void ClearAllLogs();
 }

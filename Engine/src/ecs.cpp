@@ -15,7 +15,7 @@ void ECS::CreateEntity(std::string entityID) {
     if (registry.valid(entity)) { Status::SetRuntimeStatus("Entity " + entityID + " created");
     
     } else {
-        if (!registry.valid(entity)) { Status::SetErrorStatus("Error: Object could not be created");
+        if (!registry.valid(entity)) { Status::SetError("Error: Object could not be created");
             return;
         }
     }
